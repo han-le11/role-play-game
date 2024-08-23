@@ -65,6 +65,10 @@ void attack(const char *attacker_name, const char *target_name) {
         printf("Attacker \"%s\" is already dead.\n", attacker_name);
         return;
     }
+    if (target->hit_points == 0) {
+        printf("Target \"%s\" is already dead.\n", attacker_name);
+        return;
+    }
     if (strcmp(attacker_name, target_name) == 0) {
         printf("Attacker \"%s\" cannot attack to itself.\n", attacker_name);
         return;
@@ -86,10 +90,17 @@ void attack(const char *attacker_name, const char *target_name) {
     printf("SUCCESS\n");
 }
 
+// My function to compare two characters by experience (for sorting)
+int compare_characters(const void *a, const void *b) {
+    Character *char_a = *(Character **)a;
+    Character *char_b = *(Character **)b;
+    return char_b->experience - char_a->experience; // Descending order
+}
+
 // Function to print the current game state (sorted by experience)
 void print_game(void) {
     if (!game_database) {
-        printf("No characters in the game.\n");
+        printf("ERROR: No characters in the game.\n");
         return;
     }
 
@@ -108,7 +119,6 @@ void print_game(void) {
         return;
     }
 
-    // Populate array with pointers to characters
     current = game_database;
     for (int i = 0; i < count; i++) {
         characters[i] = current;
@@ -116,15 +126,7 @@ void print_game(void) {
     }
 
     // Sort characters by experience (descending)
-    for (int i = 0; i < count - 1; i++) {
-        for (int j = i + 1; j < count; j++) {
-            if (characters[i]->experience < characters[j]->experience) {
-                Character *temp = characters[i];
-                characters[i] = characters[j];
-                characters[j] = temp;
-            }
-        }
-    }
+    qsort(characters, count, sizeof(Character *), compare_characters);
 
     // Print sorted characters
     for (int i = 0; i < count; i++) {
@@ -140,7 +142,7 @@ void print_game(void) {
     printf("SUCCESS\n");
 }
 
-// Function to save the game to a file
+// Function to save the game to a file (sorted by experience)
 void save_to_file(const char *filename) {
     FILE *file = fopen(filename, "w");
     if (!file) {
@@ -148,17 +150,42 @@ void save_to_file(const char *filename) {
         return;
     }
 
+    // Count characters
+    int count = 0;
     Character *current = game_database;
     while (current != NULL) {
-        fprintf(file, "%s %d %d %s %d\n",
-                current->name,
-                current->hit_points,
-                current->experience,
-                current->weapon,
-                current->damage);
+        count++;
         current = current->next;
     }
 
+    // Store characters in an array for sorting
+    Character **characters = (Character **)malloc(count * sizeof(Character *));
+    if (!characters) {
+        printf("ERROR: Memory allocation failed.\n");
+        fclose(file);
+        return;
+    }
+
+    current = game_database;
+    for (int i = 0; i < count; i++) {
+        characters[i] = current;
+        current = current->next;
+    }
+
+    // Sort characters by experience (descending)
+    qsort(characters, count, sizeof(Character *), compare_characters);
+
+    // Write sorted characters to file
+    for (int i = 0; i < count; i++) {
+        fprintf(file, "%s %d %d %s %d\n",
+                characters[i]->name,
+                characters[i]->hit_points,
+                characters[i]->experience,
+                characters[i]->weapon,
+                characters[i]->damage);
+    }
+
+    free(characters);
     fclose(file);
     printf("SUCCESS\n");
 }
