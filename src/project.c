@@ -64,6 +64,7 @@ void attack(const char *attacker_name, const char *target_name) {
         return;
     }
 
+    // Get pointers to the attacker and target characters
     Character *attacker = &characters[attacker_index];
     Character *target = &characters[target_index];
 
@@ -71,14 +72,15 @@ void attack(const char *attacker_name, const char *target_name) {
     target->hit_points -= attacker->weapon.damage;
     attacker->experience += attacker->weapon.damage;
 
+    // Ensure hit points don't fall below 0
+    if (target->hit_points < 0) {
+        target->hit_points = 0;
+    }
+
     // Print attack results
     printf("%s attacked %s with %s by %d damage.\n", attacker->name, target->name, attacker->weapon.name, attacker->weapon.damage);
     printf("%s has %d hit points remaining.\n", target->name, target->hit_points > 0 ? target->hit_points : 0);
     printf("%s gained %d experience points.\n", attacker->name, attacker->weapon.damage);
-
-    // if (target->hit_points <= 0) {
-    //     printf("%s has died.\n", target->name);
-    // }
 
     printf("SUCCESS\n");
 }
