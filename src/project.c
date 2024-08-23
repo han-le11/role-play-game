@@ -1,122 +1,162 @@
 #include "project.h"
 
-// Dynamic array of characters
-Character *characters = NULL;
-int num_characters = 0;
+// Global variable for the character database (linked list)
+Character *game_database = NULL;
 
-// Function to add a character
-void add_character(const char *name, int hit_points, const char *weapon_name, int weapon_damage) {
-    // Check if hit points are valid
+// Function to find a character by name
+Character *find_character(const char *name) {
+    Character *current = game_database;
+    while (current != NULL) {
+        if (strcmp(current->name, name) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+// Function to add a new character
+void add_character(const char *name, int hit_points, const char *weapon, int damage) {
+    // Check if the character already exists
+    if (find_character(name) != NULL) {
+        printf("Fighter \"%s\" is already in the database.\n", name);
+        return;
+    }
+
+    // Check if the hit points and damage are valid
     if (hit_points < 1) {
         printf("HP cannot be lower than 1.\n");
         return;
     }
 
-    // Check if character already exists
-    for (int i = 0; i < num_characters; i++) {
-        if (strcmp(characters[i].name, name) == 0) {
-            printf("Fighter \"%s\" is already in the database.", characters[i].name);
-            return;
-        }
-    }
-
-    // Reallocate space for a new character
-    characters = realloc(characters, sizeof(Character) * (num_characters + 1));
-    if (!characters) {
-        printf("Error: Memory allocation failed\n");
+    // Allocate memory for the new character
+    Character *new_character = (Character *)malloc(sizeof(Character));
+    if (!new_character) {
+        printf("ERROR: Memory allocation failed.\n");
         return;
     }
 
-    // Dynamically allocate memory for name and weapon name
-    characters[num_characters].name = strdup(name);
-    characters[num_characters].hit_points = hit_points;
-    characters[num_characters].experience = 0;
-    characters[num_characters].weapon.name = strdup(weapon_name);
-    characters[num_characters].weapon.damage = weapon_damage;
-
-    num_characters++;
+    // Allocate memory for the character's name and weapon
+    new_character->name = strdup(name);
+    new_character->weapon = strdup(weapon);
+    new_character->hit_points = hit_points;
+    new_character->experience = 0;          // Initial experience is 0
+    new_character->damage = damage;         // Weapon damage
+    new_character->next = game_database;    // Add to the start of the list
+    game_database = new_character;
     printf("SUCCESS\n");
 }
 
-// My helper function to find a character by name
-int find_character(const char *name) {
-    for (int i = 0; i < num_characters; i++) {
-        if (strcmp(characters[i].name, name) == 0) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-// Function to handle attack. The character cannot attack itself,
+// Function to make a character attack another character
 void attack(const char *attacker_name, const char *target_name) {
-    // Check if attacker is attacking themselves
+    Character *attacker = find_character(attacker_name);
+    Character *target = find_character(target_name);
+
+    // Error checks
+    if (!attacker) {
+        printf("Attacker \"%s\" does not exist.\n", attacker_name);
+        return;
+    }
+    if (!target) {
+        printf("Target \"%s\" does not exist.\n", target_name);
+        return;
+    }
+    if (attacker->hit_points == 0) {
+        printf("Attacker \"%s\" is already dead.\n", attacker_name);
+        return;
+    }
     if (strcmp(attacker_name, target_name) == 0) {
-        printf("Attacker \"%s\" cannot attack to itself.", attacker_name);
+        printf("Attacker \"%s\" cannot attack to itself.\n", attacker_name);
         return;
     }
 
-    int attacker_index = find_character(attacker_name);
-    int target_index = find_character(target_name);
+    // Attack process
+    printf("%s attacked %s with %s by %d damage.\n", attacker->name, target->name, attacker->weapon, attacker->damage);
+    target->hit_points -= attacker->damage;
+    attacker->experience += attacker->damage;
 
-    if (attacker_index == -1 || target_index == -1) {
-        printf("Error: Attacker or target does not exist\n");
-        return;
-    }
-
-    // Get pointers to the attacker and target characters
-    Character *attacker = &characters[attacker_index];
-    Character *target = &characters[target_index];
-
-    // Apply damage and update experience
-    target->hit_points -= attacker->weapon.damage;
-    attacker->experience += attacker->weapon.damage;
-
-    // Ensure hit points don't fall below 0
+    // Make sure hit points don't go below 0
     if (target->hit_points < 0) {
         target->hit_points = 0;
     }
 
-    // Print attack results
-    printf("%s attacked %s with %s by %d damage.\n", attacker->name, target->name, attacker->weapon.name, attacker->weapon.damage);
-    printf("%s has %d hit points remaining.\n", target->name, target->hit_points > 0 ? target->hit_points : 0);
-    printf("%s gained %d experience points.\n", attacker->name, attacker->weapon.damage);
-
+    // Print attack result
+    printf("%s has %d hit points remaining.\n", target->name, target->hit_points);
+    printf("%s gained %d experience points.\n", attacker->name, attacker->damage);
     printf("SUCCESS\n");
 }
 
-// Function to print the game status
+// Function to print the current game state (sorted by experience)
 void print_game(void) {
-    // Sort by experience (descending order)
-    for (int i = 0; i < num_characters - 1; i++) {
-        for (int j = i + 1; j < num_characters; j++) {
-            if (characters[i].experience < characters[j].experience) {
-                Character temp = characters[i];
+    if (!game_database) {
+        printf("No characters in the game.\n");
+        return;
+    }
+
+    // Count characters
+    int count = 0;
+    Character *current = game_database;
+    while (current != NULL) {
+        count++;
+        current = current->next;
+    }
+
+    // Store characters in an array for sorting
+    Character **characters = (Character **)malloc(count * sizeof(Character *));
+    if (!characters) {
+        printf("ERROR: Memory allocation failed.\n");
+        return;
+    }
+
+    // Populate array with pointers to characters
+    current = game_database;
+    for (int i = 0; i < count; i++) {
+        characters[i] = current;
+        current = current->next;
+    }
+
+    // Sort characters by experience (descending)
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = i + 1; j < count; j++) {
+            if (characters[i]->experience < characters[j]->experience) {
+                Character *temp = characters[i];
                 characters[i] = characters[j];
                 characters[j] = temp;
             }
         }
     }
 
-    // Print the characters
-    for (int i = 0; i < num_characters; i++) {
-        printf("%s %d %d %s %d\n", characters[i].name, characters[i].hit_points, characters[i].experience,
-               characters[i].weapon.name, characters[i].weapon.damage);
+    // Print sorted characters
+    for (int i = 0; i < count; i++) {
+        printf("%s %d %d %s %d\n",
+               characters[i]->name,
+               characters[i]->hit_points,
+               characters[i]->experience,
+               characters[i]->weapon,
+               characters[i]->damage);
     }
+
+    free(characters);
     printf("SUCCESS\n");
 }
 
 // Function to save the game to a file
-void save_game(const char *filename) {
+void save_to_file(const char *filename) {
     FILE *file = fopen(filename, "w");
     if (!file) {
-        printf("Error: Cannot open file\n");
+        printf("ERROR: Could not open file %s for writing.\n", filename);
         return;
     }
 
-    for (int i = 0; i < num_characters; i++) {
-        fprintf(file, "%s %d %d %s %d\n", characters[i].name, characters[i].hit_points,
-                characters[i].experience, characters[i].weapon.name, characters[i].weapon.damage);
+    Character *current = game_database;
+    while (current != NULL) {
+        fprintf(file, "%s %d %d %s %d\n",
+                current->name,
+                current->hit_points,
+                current->experience,
+                current->weapon,
+                current->damage);
+        current = current->next;
     }
 
     fclose(file);
@@ -124,117 +164,102 @@ void save_game(const char *filename) {
 }
 
 // Function to load the game from a file
-void load_game(const char *filename) {
+void load_from_file(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
-        printf("Error: Cannot open file\n");
+        printf("ERROR: Could not open file %s for reading.\n", filename);
         return;
     }
 
-    // Free existing characters
-    for (int i = 0; i < num_characters; i++) {
-        free(characters[i].name);
-        free(characters[i].weapon.name);
-    }
-    free(characters);
-    characters = NULL;
-    num_characters = 0;
+    // Clear the existing game data
+    quit_game();
 
-    // Load characters from the file
-    char name[100], weapon_name[100];
-    int hit_points, experience, weapon_damage;
-    while (fscanf(file, "%s %d %d %s %d", name, &hit_points, &experience, weapon_name, &weapon_damage) == 5) {
-        add_character(name, hit_points, weapon_name, weapon_damage);
-        characters[num_characters - 1].experience = experience; // Set experience directly
+    char name[100];
+    int hit_points, experience, damage;
+    char weapon[100];
+
+    while (fscanf(file, "%s %d %d %s %d", name, &hit_points, &experience, weapon, &damage) == 5) {
+        add_character(name, hit_points, weapon, damage);
+        Character *character = find_character(name);
+        if (character) {
+            character->experience = experience;  // Restore experience points
+        }
     }
 
     fclose(file);
     printf("SUCCESS\n");
 }
 
-// Function to quit the game
+// Function to free all dynamically allocated memory
 void quit_game(void) {
-    for (int i = 0; i < num_characters; i++) {
-        free(characters[i].name);           // Free dynamically allocated memory for name
-        free(characters[i].weapon.name);    // Free dynamically allocated memory for weapon name
+    Character *current = game_database;
+    while (current != NULL) {
+        Character *next = current->next;
+        free(current->name);
+        free(current->weapon);
+        free(current);
+        current = next;
     }
-    free(characters);  // Free the dynamic array
+    game_database = NULL;
     printf("SUCCESS\n");
 }
 
-#include "project.h"
-
+// Main function
 int main(void) {
-    char input[1000];  // Buffer to store user input
+    char input[1000];
+    char command;
 
-    // Infinite loop for processing commands
     while (1) {
-        // Read user input
-        if (!fgets(input, sizeof(input), stdin)) {
-            break;  // Exit if input is not valid (EOF or error)
+        if (!fgets(input, sizeof(input), stdin)) break;
+
+        command = input[0];
+        if (command == 'Q') {
+            quit_game();
+            break;
         }
 
-        // Extract the command letter
-        char command;
-        sscanf(input, " %c", &command);
-
-        // Process commands based on the command letter
         if (command == 'A') {
-            char name[100], weapon_name[100];
-            int hit_points, weapon_damage;
+            char name[100];
+            int hit_points;
+            char weapon[100];
+            int damage;
 
-            // Parse and add a character
-            if (sscanf(input, "A %s %d %s %d", name, &hit_points, weapon_name, &weapon_damage) == 4) {
-                add_character(name, hit_points, weapon_name, weapon_damage);
+            if (sscanf(input, "A %s %d %s %d", name, &hit_points, weapon, &damage) == 4) {
+                add_character(name, hit_points, weapon, damage);
             } else {
-                printf("Error: Invalid command arguments\n");
+                printf("ERROR: Invalid arguments for adding character.\n");
             }
-
         } else if (command == 'H') {
-            char attacker[100], target[100];
+            char attacker[100];
+            char target[100];
 
-            // Parse and execute an attack
             if (sscanf(input, "H %s %s", attacker, target) == 2) {
                 attack(attacker, target);
             } else {
-                printf("Error: Invalid command arguments\n");
+                printf("ERROR: Invalid arguments for attack.\n");
             }
-
         } else if (command == 'L') {
-            // Print the game status
             print_game();
-
         } else if (command == 'W') {
             char filename[100];
 
-            // Parse and save the game to a file
             if (sscanf(input, "W %s", filename) == 1) {
-                save_game(filename);
+                save_to_file(filename);
             } else {
-                printf("Error: Invalid command arguments\n");
+                printf("ERROR: Invalid arguments for saving to file.\n");
             }
-
         } else if (command == 'O') {
             char filename[100];
 
-            // Parse and load the game from a file
             if (sscanf(input, "O %s", filename) == 1) {
-                load_game(filename);
+                load_from_file(filename);
             } else {
-                printf("Error: Invalid command arguments\n");
+                printf("ERROR: Invalid arguments for loading from file.\n");
             }
-
-        } else if (command == 'Q') {
-            // Quit the game and release resources
-            quit_game();
-            break;  // Exit the loop when 'Q' is received
-
         } else {
-            // Handle invalid commands
-            printf("Invalid command %c\n", command);
+            printf("ERROR: Unknown command.\n");
         }
     }
 
-    return 0;  // Program ends after quitting
+    return 0;
 }
-

@@ -1,6 +1,5 @@
 #ifndef PROJECT_H
 #define PROJECT_H
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,27 +15,23 @@ char* strdup(const char *str) {
 }
 #endif
 
-// Structure for the weapon
-typedef struct Weapon {
-    char *name;
-    int damage;
-} Weapon;
-
-// Structure for the character
-typedef struct Character {
-    char *name;
-    int hit_points;
-    int experience;
-    Weapon weapon;
+// Structure for a character in the game
+typedef struct Character { 
+    char *name;             // Character's name
+    int hit_points;         // Character's hit points
+    int experience;         // Character's experience points
+    char *weapon;           // Character's weapon name
+    int damage;             // Weapon damage
+    struct Character *next; // Pointer to the next character in the list
 } Character;
 
-// Function Declarations
-void add_character(const char *name, int hit_points, const char *weapon_name, int weapon_damage);
+// Function declarations
+void add_character(const char *name, int hit_points, const char *weapon, int damage);
 void attack(const char *attacker_name, const char *target_name);
 void print_game(void);
-void save_game(const char *filename);
-void load_game(const char *filename);
 void quit_game(void);
-int find_character(const char *name);
+void save_to_file(const char *filename);
+void load_from_file(const char *filename);
+Character *find_character(const char *name);
 
-#endif //! _PROJECT__H_
+#endif
