@@ -94,7 +94,12 @@ void attack(const char *attacker_name, const char *target_name) {
 int compare_characters(const void *a, const void *b) {
     Character *char_a = *(Character **)a;
     Character *char_b = *(Character **)b;
-    return char_b->experience - char_a->experience; // Descending order
+    // Compare by experience (descending)
+    if (char_b->experience != char_a->experience) {
+        return char_b->experience - char_a->experience;
+    }
+    // If experience is equal, compare by hit points (descending)
+    return char_b->hit_points - char_a->hit_points;
 }
 
 // Function to print the current game state (sorted by experience)
@@ -146,7 +151,7 @@ void print_game(void) {
 void save_to_file(const char *filename) {
     FILE *file = fopen(filename, "w");
     if (!file) {
-        printf("ERROR: Could not open file %s for writing.\n", filename);
+        printf("Cannot open file %s for writing.\n", filename);
         return;
     }
 
@@ -194,7 +199,7 @@ void save_to_file(const char *filename) {
 void load_from_file(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
-        printf("ERROR: Could not open file %s for reading.\n", filename);
+        printf("Cannot open file %s for reading.\n", filename);
         return;
     }
 
@@ -217,7 +222,7 @@ void load_from_file(const char *filename) {
     printf("SUCCESS\n");
 }
 
-// Function to free all dynamically allocated memory
+// Function to free all allocated memory
 void quit_game(void) {
     Character *current = game_database;
     while (current != NULL) {
@@ -277,7 +282,6 @@ int main(void) {
             }
         } else if (command == 'O') {
             char filename[100];
-
             if (sscanf(input, "O %s", filename) == 1) {
                 load_from_file(filename);
             } else {
