@@ -3,7 +3,7 @@
 // Global variable for the character database (linked list)
 Character *game_database = NULL;
 
-// Function to find a character by name
+// Helper function to find a character by name
 Character *find_character(const char *name) {
     Character *current = game_database;
     while (current != NULL) {
@@ -15,11 +15,18 @@ Character *find_character(const char *name) {
     return NULL;
 }
 
+// My function to compare two characters by experience (for sorting)
+int compare_characters(const void *a, const void *b) {
+    Character *char_a = *(Character **)a;
+    Character *char_b = *(Character **)b;
+    return char_b->experience - char_a->experience;  // descending order
+}
+
 // Function to add a new character
 void add_character(const char *name, int hit_points, const char *weapon, int damage) {
     // Check if the character already exists
     if (find_character(name) != NULL) {
-        printf("Fighter \"%s\" is already in the database.\n", name);
+        printf("Fighter \"%s\" is already in the database.\n", name); 
         return;
     }
 
@@ -88,18 +95,6 @@ void attack(const char *attacker_name, const char *target_name) {
     printf("%s has %d hit points remaining.\n", target->name, target->hit_points);
     printf("%s gained %d experience points.\n", attacker->name, attacker->damage);
     printf("SUCCESS\n");
-}
-
-// My function to compare two characters by experience (for sorting)
-int compare_characters(const void *a, const void *b) {
-    Character *char_a = *(Character **)a;
-    Character *char_b = *(Character **)b;
-    // Compare by experience (descending)
-    if (char_b->experience != char_a->experience) {
-        return char_b->experience - char_a->experience;
-    }
-    // If experience is equal, compare by hit points (descending)
-    return char_b->hit_points - char_a->hit_points;
 }
 
 // Function to print the current game state (sorted by experience)
@@ -202,14 +197,12 @@ void load_from_file(const char *filename) {
         printf("Cannot open file %s for reading.\n", filename);
         return;
     }
-
     // Clear the existing game data
     quit_game();
 
     char name[100];
     int hit_points, experience, damage;
     char weapon[100];
-
     while (fscanf(file, "%s %d %d %s %d", name, &hit_points, &experience, weapon, &damage) == 5) {
         add_character(name, hit_points, weapon, damage);
         Character *character = find_character(name);
@@ -217,10 +210,9 @@ void load_from_file(const char *filename) {
             character->experience = experience;  // Restore experience points
         }
     }
-
     fclose(file);
-    printf("SUCCESS\n");
 }
+
 
 // Function to free all allocated memory
 void quit_game(void) {
@@ -236,61 +228,116 @@ void quit_game(void) {
     printf("SUCCESS\n");
 }
 
-// Main function
+// Function prototypes
+void handle_add_character(char *input);
+void handle_attack(char *input);
+void handle_save_game(char *input);
+void handle_load_game(char *input);
+
 int main(void) {
-    char input[1000];
-    char command;
+    char *line = NULL;  // To store user input
+    size_t len = 0;     // Size of the allocated buffer
+    size_t read;        // Number of characters read
 
+    // Main loop for the game
     while (1) {
-        if (!fgets(input, sizeof(input), stdin)) break;
+        // Get a line of input from the user
+        read = getline(&line, &len, stdin);
 
-        command = input[0];
-        if (command == 'Q') {
-            quit_game();
-            break;
+        // Check if the input was valid
+        if (read ==  (size_t)-1) {
+            break; // Exit the loop on EOF
         }
 
-        if (command == 'A') {
-            char name[100];
-            int hit_points;
-            char weapon[100];
-            int damage;
+        // Trim newline character from input if it exists
+        if (line[read - 1] == '\n') {
+            line[read - 1] = '\0';
+        }
 
-            if (sscanf(input, "A %s %d %s %d", name, &hit_points, weapon, &damage) == 4) {
-                add_character(name, hit_points, weapon, damage);
-            } else {
-                printf("ERROR: Invalid arguments for adding character.\n");
-            }
-        } else if (command == 'H') {
-            char attacker[100];
-            char target[100];
+        // Command processing based on the first character in the input
+        char command = line[0];
 
-            if (sscanf(input, "H %s %s", attacker, target) == 2) {
-                attack(attacker, target);
-            } else {
-                printf("ERROR: Invalid arguments for attack.\n");
-            }
-        } else if (command == 'L') {
-            print_game();
-        } else if (command == 'W') {
-            char filename[100];
-
-            if (sscanf(input, "W %s", filename) == 1) {
-                save_to_file(filename);
-            } else {
-                printf("ERROR: Invalid arguments for saving to file.\n");
-            }
-        } else if (command == 'O') {
-            char filename[100];
-            if (sscanf(input, "O %s", filename) == 1) {
-                load_from_file(filename);
-            } else {
-                printf("ERROR: Invalid arguments for loading from file.\n");
-            }
-        } else {
-            printf("ERROR: Unknown command.\n");
+        switch (command) {
+            case 'A': // Add character
+                handle_add_character(line + 1); // Pass the remaining input
+                break;
+            case 'H': // Attack
+                handle_attack(line + 1); // Pass the remaining input
+                break;
+            case 'L': // Print game
+                print_game();
+                break;
+            case 'W': // Save to file
+                handle_save_game(line + 1); // Pass the remaining input
+                break;
+            case 'O': // Load from file
+                handle_load_game(line + 1); // Pass the remaining input
+                break;
+            case 'Q': // Quit game
+                quit_game();
+                free(line); // Free the getline buffer
+                return 0;
+            default:
+                printf("Invalid command.\n");
         }
     }
 
+    free(line); // Free the getline buffer
     return 0;
 }
+
+// Helper function to handle the Add Character command
+void handle_add_character(char *input) {
+    char *name = strtok(input, " ");
+    char *hp_str = strtok(NULL, " ");
+    char *weapon = strtok(NULL, " ");
+    char *damage_str = strtok(NULL, " ");
+
+    if (!name || !hp_str || !weapon || !damage_str) {
+        printf("Invalid add character command format.\n");
+        return;
+    }
+
+    int hit_points = atoi(hp_str);
+    int weapon_damage = atoi(damage_str);
+
+    add_character(name, hit_points, weapon, weapon_damage);
+}
+
+// Helper function to handle the Attack command
+void handle_attack(char *input) {
+    char *attacker = strtok(input, " ");
+    char *target = strtok(NULL, " ");
+
+    if (!attacker || !target) {
+        printf("Invalid attack command format.\n");
+        return;
+    }
+
+    attack(attacker, target);
+}
+
+// Helper function to handle the Save to File command
+void handle_save_game(char *input) {
+    char *filename = strtok(input, " ");
+
+    if (!filename) {
+        printf("Invalid save game command format.\n");
+        return;
+    }
+
+    save_to_file(filename);
+}
+
+// Helper function to handle the Load from File command
+void handle_load_game(char *input) {
+    char *filename = strtok(input, " ");
+
+    if (!filename) {
+        printf("Invalid load game command format.\n");
+        return;
+    }
+
+    load_from_file(filename);
+}
+

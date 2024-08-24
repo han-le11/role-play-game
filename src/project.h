@@ -1,11 +1,11 @@
 #ifndef PROJECT_H
 #define PROJECT_H
+#define  _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 // Implement function strdup() if it is not supported by the compiler
-#ifndef _POSIX_C_SOURCE
 char* strdup(const char *str) {
     char *dup = malloc(strlen(str) + 1);  // Allocate memory for the copy
     if (dup != NULL) {
@@ -13,7 +13,6 @@ char* strdup(const char *str) {
     }
     return dup;
 }
-#endif
 
 // Structure for a character in the game
 typedef struct Character { 
