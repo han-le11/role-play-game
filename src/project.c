@@ -210,39 +210,25 @@ void load_from_file(const char *filename) {
 
         // Read the line
         if (sscanf(line, "%ms %d %d %ms %d", &name, &hit_points, &experience, &weapon, &weapon_damage) == 5) {
-            if (hit_points <= 0 || weapon_damage <= 0) {
-                printf("ERROR: Invalid character data in file (hit points and weapon damage must be positive).\n");
-                free(name);
-                free(weapon);
-                continue;
-            }
-
             // Add the character with proper initial experience value
             Character *new_character = (Character *)malloc(sizeof(Character));
+            if (!new_character) {
+                printf("ERROR: Memory allocation failed.\n");
+                return;
+            }
             new_character->name = name;
             new_character->weapon = weapon;
             new_character->hit_points = hit_points;
             new_character->experience = experience;
             new_character->damage = weapon_damage;
-            new_character->next = NULL;
-
-            // Add to the database
-            if (!game_database) {
-                game_database = new_character;
-            } else {
-                Character *temp = game_database;
-                while (temp->next) {
-                    temp = temp->next;
-                }
-                temp->next = new_character;
-            }
+            new_character->next = game_database;    // Add to the start of the list
+            game_database = new_character;
         } else {
             printf("Invalid line format in file %s.\n", filename);
         }
     }
     free(line);
     fclose(file);
-    printf("SUCCESS\n");
 }
 
 // Function to free all allocated memory
@@ -256,6 +242,7 @@ void quit_game(void) {
         current = next;
     }
     game_database = NULL;
+    printf("SUCCESS\n");
 }
 
 // Function prototypes
@@ -306,7 +293,6 @@ int main(void) {
             case 'Q': // Quit game
                 quit_game();
                 free(line); // Free the getline buffer
-                printf("SUCCESS\n");
                 return 0;
             default:
                 printf("Invalid command.\n");
