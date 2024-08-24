@@ -61,11 +61,11 @@ void attack(const char *attacker_name, const char *target_name) {
 
     // Error checks
     if (!attacker) {
-        printf("Attacker \"%s\" does not exist.\n", attacker_name);
+        printf("Attacker \"%s\" is not in the database.\n", attacker_name);
         return;
     }
     if (!target) {
-        printf("Target \"%s\" does not exist.\n", target_name);
+        printf("Target \"%s\" is not in the database.\n", target_name);
         return;
     }
     if (attacker->hit_points == 0) {
@@ -197,22 +197,53 @@ void load_from_file(const char *filename) {
         printf("Cannot open file %s for reading.\n", filename);
         return;
     }
-    // Clear the existing game data
     quit_game();
 
-    char name[100];
-    int hit_points, experience, damage;
-    char weapon[100];
-    while (fscanf(file, "%s %d %d %s %d", name, &hit_points, &experience, weapon, &damage) == 5) {
-        add_character(name, hit_points, weapon, damage);
-        Character *character = find_character(name);
-        if (character) {
-            character->experience = experience;  // Restore experience points
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    while ((read = getline(&line, &len, file)) != -1) {
+        char *name = NULL;
+        char *weapon = NULL;
+        int hit_points, experience, weapon_damage;
+
+        // Read the line
+        if (sscanf(line, "%ms %d %d %ms %d", &name, &hit_points, &experience, &weapon, &weapon_damage) == 5) {
+            if (hit_points <= 0 || weapon_damage <= 0) {
+                printf("ERROR: Invalid character data in file (hit points and weapon damage must be positive).\n");
+                free(name);
+                free(weapon);
+                continue;
+            }
+
+            // Add the character with proper initial experience value
+            Character *new_character = (Character *)malloc(sizeof(Character));
+            new_character->name = name;
+            new_character->weapon = weapon;
+            new_character->hit_points = hit_points;
+            new_character->experience = experience;
+            new_character->damage = weapon_damage;
+            new_character->next = NULL;
+
+            // Add to the database
+            if (!game_database) {
+                game_database = new_character;
+            } else {
+                Character *temp = game_database;
+                while (temp->next) {
+                    temp = temp->next;
+                }
+                temp->next = new_character;
+            }
+        } else {
+            printf("Invalid line format in file %s.\n", filename);
         }
     }
+    free(line);
     fclose(file);
+    printf("SUCCESS\n");
 }
-
 
 // Function to free all allocated memory
 void quit_game(void) {
@@ -225,7 +256,6 @@ void quit_game(void) {
         current = next;
     }
     game_database = NULL;
-    printf("SUCCESS\n");
 }
 
 // Function prototypes
@@ -276,6 +306,7 @@ int main(void) {
             case 'Q': // Quit game
                 quit_game();
                 free(line); // Free the getline buffer
+                printf("SUCCESS\n");
                 return 0;
             default:
                 printf("Invalid command.\n");
@@ -297,10 +328,8 @@ void handle_add_character(char *input) {
         printf("Invalid add character command format.\n");
         return;
     }
-
     int hit_points = atoi(hp_str);
     int weapon_damage = atoi(damage_str);
-
     add_character(name, hit_points, weapon, weapon_damage);
 }
 
@@ -308,36 +337,30 @@ void handle_add_character(char *input) {
 void handle_attack(char *input) {
     char *attacker = strtok(input, " ");
     char *target = strtok(NULL, " ");
-
     if (!attacker || !target) {
         printf("Invalid attack command format.\n");
         return;
     }
-
     attack(attacker, target);
 }
 
 // Helper function to handle the Save to File command
 void handle_save_game(char *input) {
     char *filename = strtok(input, " ");
-
     if (!filename) {
         printf("Invalid save game command format.\n");
         return;
     }
-
     save_to_file(filename);
 }
 
 // Helper function to handle the Load from File command
 void handle_load_game(char *input) {
     char *filename = strtok(input, " ");
-
     if (!filename) {
         printf("Invalid load game command format.\n");
         return;
     }
-
     load_from_file(filename);
 }
 
